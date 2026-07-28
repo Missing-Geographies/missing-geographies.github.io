@@ -101,9 +101,8 @@
    screen wide on a phone) sitting under the title, and script.js
    opens the letter whenever a pointer moves inside that rectangle.
    On a phone that meant almost any touch, or a drag across the
-   globe, opened it, and the invisible box also swallowed taps meant
-   for the map. Collapsing the hidden box removes both problems and
-   leaves the dot itself as the way in.
+   globe, opened it. Moving the hidden box out of the way removes that
+   trigger area and leaves the dot itself as the way in.
 
    Desktop keeps its hover behaviour: this block is gated on a
    touch-primary pointer, the mirror of the (hover: hover) and
@@ -111,24 +110,18 @@
    ============================================================ */
 @media (hover: none), (pointer: coarse) {
 
+  /* The hidden letter is parked off screen rather than removed from the
+     layout. Its rectangle is what script.js tests the pointer against,
+     so moving it is enough to kill the phantom trigger area, while
+     offsetHeight still reports the real height, which is what the
+     placement code measures just before it opens the letter.
+
+     A margin rather than top or left: script.js writes those inline with
+     !important, so no stylesheet can win against them. Margin is also
+     absent from the transition list in styles.css, so nothing animates
+     across the gap and the fade in on opening is untouched. */
   #title-memory-quote:not(.visible) {
-    display: none !important;
-  }
-
-  /* script.js places the box by measuring it, and a collapsed box
-     reports no height, so it falls back to a 190px guess and can push
-     the card past the bottom of a short screen. Pin the top instead.
-     Width and height are left alone: styles.css already sizes this
-     card from the viewport, min(640px, 100vw - 34px).
-
-     The extra html body in the selector is only there to outrank the
-     id-plus-two-classes !important rules in styles.css. */
-  html body #title-memory-quote.title-memory-quote.visible {
-    display: flex !important;
-    position: fixed !important;
-    top: calc(env(safe-area-inset-top, 0px) + 66px) !important;
-    bottom: auto !important;
-    transform: none !important;
+    margin-top: -200vh !important;
   }
 
   /* Finger-sized target over the dot, added by mobile-fixes.js. It is
