@@ -8,61 +8,320 @@
   "use strict";
 
   /* ---------------------------------------------------------------
-     1. Pinch to zoom the globe.
-     Zoom was bound to the wheel event only, and touch-action:none on
-     a full-screen globe also suppresses the browser own pinch, so a
-     phone had no way to zoom at all. This reuses the existing global
-     zoomGlobe() step function rather than touching the projection.
+     1. Pinch to zoom the globe, and taps that reach the city dots.
+
+     Two phone problems share one gesture, so they are handled here
+     together.
+
+     Zoom: the globe only ever zoomed on the wheel event, and a full
+     screen globe carrying touch-action none leaves the browser own
+     pinch out of the picture as well, so a phone had no way to zoom.
+     An earlier version of this file listened on the globe element,
+     but d3.drag() binds its rotate handlers there first and stops the
+     event dead with stopImmediatePropagation(), so on a real phone
+     those listeners never ran at all. Everything below listens on the
+     document in the capture phase, which is ahead of d3, and holds the
+     gesture back while two fingers are down so the globe cannot spin
+     while it is being scaled.
+
+     Tap: d3.drag() also cancels touchend, and a cancelled touchend is
+     never turned into a click by Safari, which left the click handlers
+     on the city dots out of reach. After a clean tap we wait a moment
+     and, if no click of the browser own turns up, we send one. A tap
+     that lands beside a dot counts too, because a dot is barely two
+     pixels wide on a phone.
+
+     Zooming still goes through the existing global zoomGlobe(), so the
+     limits, the projection and the redraw all stay in script.js.
      --------------------------------------------------------------- */
-  function addPinchZoom() {
+  var ZOOM_STEP = 1.06;          // the factor zoomGlobe() moves by
+  var MAX_STEPS_PER_FRAME = 10;  // one wild pinch cannot hog a frame
+  var TAP_SLOP = 12;             // px a finger may drift and still tap
+  var TAP_TIME = 700;            // ms a tap may last
+  var TAP_REACH = 24;            // px around the finger to look for a dot
+  var CLICK_GRACE = 320;         // ms to wait for the browser own click
+  var globeGesturesBound = false;
+
+  function addGlobeTouchGestures() {
     var globe = document.getElementById("globe");
 
-    if (!globe || globe.getAttribute("data-mg-pinch") === "1") return;
-    globe.setAttribute("data-mg-pinch", "1");
+    if (!globe || globeGesturesBound) return;
+    globeGesturesBound = true;
 
-    var startDistance = 0;
-    var lastRatio = 1;
+    var pinchSpread = 0;    // finger distance when the pinch began
+    var pinchSteps = 0;     // zoom steps this pinch has asked for
+    var pinching = false;   // two fingers are down right now
+    var pinchUsed = false;  // this touch became a pinch at some point
+    var pendingSteps = 0;   // zoom steps waiting for the next frame
+    var frame = 0;
+    var tap = null;         // the finger that may still turn into a tap
+    var clicksSeen = 0;     // clicks the page really received
+
+    function onGlobe(node) {
+      return !!node && (node === globe || globe.contains(node));
+    }
 
     function spread(touches) {
       var dx = touches[0].clientX - touches[1].clientX;
       var dy = touches[0].clientY - touches[1].clientY;
+
       return Math.sqrt(dx * dx + dy * dy);
     }
 
-    globe.addEventListener("touchstart", function (event) {
-      if (event.touches.length !== 2) return;
-      startDistance = spread(event.touches);
-      lastRatio = 1;
-    }, { passive: true });
+    function applyPendingZoom() {
+      frame = 0;
 
-    globe.addEventListener("touchmove", function (event) {
-      if (event.touches.length !== 2) return;
-      if (!startDistance) return;
-      if (typeof window.zoomGlobe !== "function") return;
+      if (!pendingSteps || typeof window.zoomGlobe !== "function") {
+        pendingSteps = 0;
+        return;
+      }
 
-      event.preventDefault();
-
-      var ratio = spread(event.touches) / startDistance;
-      var steps = Math.round(Math.log(ratio / lastRatio) / Math.log(1.06));
-
-      if (!steps) return;
-
-      var direction = steps > 0 ? "in" : "out";
-      var count = Math.min(Math.abs(steps), 6);
+      var direction = pendingSteps > 0 ? "in" : "out";
+      var count = Math.min(Math.abs(pendingSteps), MAX_STEPS_PER_FRAME);
+      var realRender = window.render;
+      var quiet = count > 1 && typeof realRender === "function";
       var i;
 
-      for (i = 0; i < count; i++) window.zoomGlobe(direction);
+      /* Anything left over rides along on the next frame, so a quick
+         pinch is followed rather than clipped. */
+      pendingSteps -= direction === "in" ? count : -count;
 
-      lastRatio = ratio;
-    }, { passive: false });
+      /* zoomGlobe() redraws on every single step, so for a burst of
+         steps we let it draw once, at the end. */
+      if (quiet) window.render = function () {};
 
-    globe.addEventListener("touchend", function (event) {
-      if (event.touches.length < 2) startDistance = 0;
-    }, { passive: true });
+      try {
+        for (i = 0; i < count; i++) window.zoomGlobe(direction);
+      } finally {
+        if (quiet) {
+          window.render = realRender;
+          realRender();
+        }
+      }
 
-    globe.addEventListener("touchcancel", function () {
-      startDistance = 0;
-    }, { passive: true });
+      if (pendingSteps) frame = window.requestAnimationFrame(applyPendingZoom);
+    }
+
+    function queueZoom(steps) {
+      pendingSteps += steps;
+
+      if (frame) return;
+      frame = window.requestAnimationFrame(applyPendingZoom);
+    }
+
+    function hasClickHandler(node) {
+      var bound = node.__on;   // where d3 keeps the listeners it added
+      var i;
+
+      if (!bound) return false;
+
+      for (i = 0; i < bound.length; i++) {
+        if (bound[i].type === "click") return true;
+      }
+
+      return false;
+    }
+
+    /* The dots are under two pixels wide on a phone, so a finger that
+       lands close enough is treated as landing on the dot. */
+    function nearestDot(x, y) {
+      var dots = globe.querySelectorAll("circle");
+      var best = null;
+      var shortest = TAP_REACH;
+      var i, dot, box, dx, dy, distance;
+
+      for (i = 0; i < dots.length; i++) {
+        dot = dots[i];
+
+        if (!hasClickHandler(dot)) continue;
+
+        box = dot.getBoundingClientRect();
+
+        if (!box.width && !box.height) continue;   // hidden behind the globe
+
+        dx = box.left + box.width / 2 - x;
+        dy = box.top + box.height / 2 - y;
+        distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < shortest) {
+          shortest = distance;
+          best = dot;
+        }
+      }
+
+      return best;
+    }
+
+    function clickTargetFor(startTarget, x, y) {
+      var node = startTarget;
+
+      while (node && node !== globe) {
+        if (hasClickHandler(node)) return node;
+        node = node.parentNode;
+      }
+
+      return nearestDot(x, y);
+    }
+
+    function sendEvent(node, type, x, y) {
+      var Maker = type.indexOf("pointer") === 0 && window.PointerEvent
+        ? window.PointerEvent
+        : window.MouseEvent;
+
+      node.dispatchEvent(new Maker(type, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: window,
+        clientX: x,
+        clientY: y,
+        button: 0,
+        isPrimary: true,
+        pointerType: "touch"
+      }));
+    }
+
+    function completeTap(startTarget, x, y) {
+      var node = clickTargetFor(startTarget, x, y);
+      var underTheFinger;
+      var mark;
+
+      if (!node) return;   // the finger landed on open water
+
+      underTheFinger = node === startTarget || node.contains(startTarget);
+      mark = clicksSeen;
+
+      window.setTimeout(function () {
+        /* If the browser managed a click of its own, leave it alone. */
+        if (clicksSeen !== mark) return;
+
+        /* The finger already sent pointerdown wherever it landed, so
+           that part is only needed for a dot the finger missed. */
+        if (!underTheFinger) sendEvent(node, "pointerdown", x, y);
+
+        sendEvent(node, "click", x, y);
+      }, CLICK_GRACE);
+    }
+
+    function farFromTap(touch) {
+      if (!touch || !tap) return false;
+
+      return Math.abs(touch.clientX - tap.x) > TAP_SLOP ||
+        Math.abs(touch.clientY - tap.y) > TAP_SLOP;
+    }
+
+    document.addEventListener("click", function () {
+      clicksSeen++;
+    }, true);
+
+    document.addEventListener("touchstart", function (event) {
+      if (!onGlobe(event.target)) return;
+
+      if (event.touches.length === 1) {
+        pinchUsed = false;
+        tap = {
+          target: event.target,
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY,
+          at: Date.now()
+        };
+
+        return;   // one finger still belongs to the rotate handler
+      }
+
+      if (event.touches.length === 2) {
+        pinchSpread = spread(event.touches);
+        pinchSteps = 0;
+        pinching = true;
+        pinchUsed = true;
+        tap = null;
+      }
+
+      /* Two fingers mean zoom, never rotation. */
+      event.stopPropagation();
+    }, { capture: true, passive: true });
+
+    document.addEventListener("touchmove", function (event) {
+      if (!onGlobe(event.target)) return;
+
+      /* Once a pinch has begun, rotation stays off for the rest of the
+         touch, otherwise the globe would jump to whichever finger
+         stayed down when the other one left. */
+      if (pinchUsed) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
+      if (event.touches.length < 2) {
+        /* A finger on the move is rotating, not tapping. */
+        if (tap && farFromTap(event.touches[0])) tap = null;
+        return;
+      }
+
+      if (!pinching || !pinchSpread) return;
+
+      var wanted = Math.round(
+        Math.log(spread(event.touches) / pinchSpread) / Math.log(ZOOM_STEP)
+      );
+
+      if (wanted === pinchSteps) return;
+
+      queueZoom(wanted - pinchSteps);
+      pinchSteps = wanted;
+    }, { capture: true, passive: false });
+
+    document.addEventListener("touchend", function (event) {
+      if (!onGlobe(event.target)) return;
+
+      if (event.touches.length < 2) {
+        pinching = false;
+        pinchSpread = 0;
+      }
+
+      if (event.touches.length > 0) {
+        if (pinchUsed) event.stopPropagation();
+        return;
+      }
+
+      if (pinchUsed) {
+        /* Let the last touchend through, so d3 can close the rotate
+           gesture the first finger opened. */
+        pinchUsed = false;
+        tap = null;
+        return;
+      }
+
+      if (!tap) return;
+
+      var held = Date.now() - tap.at;
+      var lifted = event.changedTouches && event.changedTouches[0];
+
+      if (held <= TAP_TIME && !farFromTap(lifted)) {
+        completeTap(tap.target, tap.x, tap.y);
+      }
+
+      tap = null;
+    }, { capture: true, passive: true });
+
+    document.addEventListener("touchcancel", function (event) {
+      if (!onGlobe(event.target)) return;
+
+      pinching = false;
+      pinchSpread = 0;
+
+      if (!event.touches.length) {
+        pinchUsed = false;
+        tap = null;
+      }
+    }, { capture: true, passive: true });
+
+    /* Safari has its own page pinch on top of the touch events. Over
+       the globe the map is the thing being zoomed, not the page. */
+    ["gesturestart", "gesturechange", "gestureend"].forEach(function (name) {
+      document.addEventListener(name, function (event) {
+        if (onGlobe(event.target)) event.preventDefault();
+      }, { capture: true, passive: false });
+    });
   }
 
   /* ---------------------------------------------------------------
@@ -691,7 +950,7 @@
   }
 
   function init() {
-    addPinchZoom();
+    addGlobeTouchGestures();
     addTitleQuoteTouchFix();
     addPhoneAudioFix();
     addDesktopAudioTiming();
