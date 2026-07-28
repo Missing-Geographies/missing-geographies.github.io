@@ -638,6 +638,9 @@
 
     if (!element) return;
 
+    /* A story with no recording has nothing to rescue. */
+    if (!isRemoteSource(remote)) return;
+
     var timer = window.setInterval(function () {
       if (token !== audioStartToken || element.currentTime > 0.2) {
         window.clearInterval(timer);
