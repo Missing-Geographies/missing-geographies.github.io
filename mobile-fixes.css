@@ -3,7 +3,7 @@
    Phone and small-tablet corrections.
    Loaded AFTER styles.css so these rules win.
    Desktop layout is untouched: everything sits inside a
-   max-width media query or uses env() which is 0 on desktop.
+   max-width media query, or uses env() which is 0px on desktop.
    ============================================================ */
 
 /* Notched phones: keep the audio dock and the subtitle strip clear
@@ -32,12 +32,19 @@
      the right edge of the nav, so roughly 310px of a 362px panel fell
      outside a 390px screen and every story title was clipped.
      Anchor it to the viewport instead, and let it scroll.
+
+     The long selector list is deliberate: styles.css sets top/right
+     with !important on .call-room-dropdown.iran-merged-dropdown
+     .story-card, so this has to match that specificity or higher.
      --------------------------------------------------------------- */
-  .call-room-dropdown .story-card {
+  .call-room-dropdown .story-card,
+  .call-room-dropdown.iran-merged-dropdown .story-card,
+  .project-nav .call-room-dropdown.iran-merged-dropdown .story-card {
     position: fixed !important;
     top: calc(env(safe-area-inset-top, 0px) + 66px) !important;
     left: 12px !important;
     right: 12px !important;
+    bottom: auto !important;
     width: auto !important;
     max-width: none !important;
     max-height: calc(100dvh - 92px - env(safe-area-inset-bottom, 0px)) !important;
@@ -70,24 +77,20 @@
     min-height: 44px !important;
   }
 
-  .mg-audio-dock-v2-progress {
-    height: 44px !important;
+  /* ID in the selector because styles.css uses
+     #mg-audio-dock-v2 .mg-audio-dock-v2-progress { height: 28px !important } */
+  #mg-audio-dock-v2 .mg-audio-dock-v2-progress,
+  .mg-audio-dock-v2 .mg-audio-dock-v2-progress {
+    height: 40px !important;
   }
 
   /* ---------------------------------------------------------------
-     3. The title was rendering at 54px / 96px tall directly over the
-        globe. Scale it with the viewport instead.
-     --------------------------------------------------------------- */
-  .site-header h1 {
-    font-size: clamp(26px, 8.5vw, 40px);
-    line-height: 1.05;
-  }
-
-  /* ---------------------------------------------------------------
-     4. The ambient scattered fragments are laid out from globe
+     3. The ambient scattered fragments are positioned from globe
         geometry, so at phone width all 17 of them pile into the same
         ~12px area. Smaller type and a narrower box reduces the smudge.
         A real fix is a layout decision, not a CSS one.
+        (The large title is left alone on purpose: styles.css sets it
+        to 15vw with !important, which reads as a deliberate choice.)
      --------------------------------------------------------------- */
   .iran-scatter-cloud-item,
   .memory-cloud-item,
@@ -98,7 +101,7 @@
   }
 
   /* ---------------------------------------------------------------
-     5. Appearance of the phone-only "Stories" opener.
+     4. Appearance of the phone-only "Stories" opener.
      --------------------------------------------------------------- */
   .mg-mobile-stories-button {
     font-size: 11px;
