@@ -1,0 +1,113 @@
+/* ============================================================
+   mobile-fixes.css
+   Phone and small-tablet corrections.
+   Loaded AFTER styles.css so these rules win.
+   Desktop layout is untouched: everything sits inside a
+   max-width media query or uses env() which is 0 on desktop.
+   ============================================================ */
+
+/* Notched phones: keep the audio dock and the subtitle strip clear
+   of the iOS home indicator / Android gesture bar. env() resolves
+   to 0px where there is no inset, so this is a no-op elsewhere. */
+.mg-audio-dock-v2,
+.audio-dock {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.map-subtitle-overlay {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* The phone-only "Stories" opener created by mobile-fixes.js.
+   Hidden by default; the media query below switches it on. */
+.mg-mobile-stories-button {
+  display: none;
+}
+
+@media (max-width: 760px) {
+
+  /* ---------------------------------------------------------------
+     1. Call room / story panel.
+     It was absolutely positioned against a 38px summary sitting near
+     the right edge of the nav, so roughly 310px of a 362px panel fell
+     outside a 390px screen and every story title was clipped.
+     Anchor it to the viewport instead, and let it scroll.
+     --------------------------------------------------------------- */
+  .call-room-dropdown .story-card {
+    position: fixed !important;
+    top: calc(env(safe-area-inset-top, 0px) + 66px) !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 92px - env(safe-area-inset-bottom, 0px)) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    z-index: 120 !important;
+  }
+
+  /* ---------------------------------------------------------------
+     2. Tap targets. 15 of 18 visible controls were under 44px.
+     --------------------------------------------------------------- */
+  .project-nav-links a,
+  .nav-action-button,
+  .nav-dropdown > summary,
+  .mg-mobile-stories-button {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .story-list .story-button {
+    min-height: 48px;
+  }
+
+  .mg-audio-dock-v2-button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .mg-audio-dock-v2-progress {
+    height: 44px !important;
+  }
+
+  /* ---------------------------------------------------------------
+     3. The title was rendering at 54px / 96px tall directly over the
+        globe. Scale it with the viewport instead.
+     --------------------------------------------------------------- */
+  .site-header h1 {
+    font-size: clamp(26px, 8.5vw, 40px);
+    line-height: 1.05;
+  }
+
+  /* ---------------------------------------------------------------
+     4. The ambient scattered fragments are laid out from globe
+        geometry, so at phone width all 17 of them pile into the same
+        ~12px area. Smaller type and a narrower box reduces the smudge.
+        A real fix is a layout decision, not a CSS one.
+     --------------------------------------------------------------- */
+  .iran-scatter-cloud-item,
+  .memory-cloud-item,
+  .fixed-memory-cloud-item {
+    font-size: 10px;
+    max-width: 74px;
+    line-height: 1.15;
+  }
+
+  /* ---------------------------------------------------------------
+     5. Appearance of the phone-only "Stories" opener.
+     --------------------------------------------------------------- */
+  .mg-mobile-stories-button {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: inherit;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+}
