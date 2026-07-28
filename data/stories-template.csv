@@ -1,0 +1,2 @@
+id,display_name,origin_city,origin_country,origin_lat,origin_lng,destination_city,destination_country,destination_lat,destination_lng,year_left,audio_file,quote,transcript_file,consent_status
+story-001,Anonymous voice 01,Tehran,Iran,35.6892,51.3890,New York,United States,40.7128,-74.0060,2018,assets/audio/story-001.mp3,"A short memory about a street, a room, or a future that still calls back.",transcripts/story-001.txt,approved

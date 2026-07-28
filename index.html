@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Missing Geographies — Interactive Audio Map</title>
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Performance: warm up external connections -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="dns-prefetch" href="//cdn.jsdelivr.net" />
+
+  <link rel="preconnect" href="https://docs.google.com" />
+  <link rel="dns-prefetch" href="//docs.google.com" />
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+</head>
+
+<body>
+  <div class="page-atmosphere" aria-hidden="true"></div>
+
+  <header class="project-nav">
+    <nav class="project-nav-links" aria-label="Project navigation">
+      <a href="https://missinggeographies.commons.gc.cuny.edu/">
+        Home
+      </a>
+
+      <a href="https://missinggeographies.commons.gc.cuny.edu/about/">
+        About
+      </a>
+
+      <a href="https://shokrangit.github.io/missing-geographies-map/" aria-current="page">
+        Map
+      </a>
+
+      <a href="https://missinggeographies.commons.gc.cuny.edu/contribute/">
+        Contribute
+      </a>
+    </nav>
+
+    <div class="project-nav-actions" aria-label="Map controls">
+      <details class="nav-dropdown call-room-dropdown">
+        <summary>
+          Call room / archive
+        </summary>
+
+        <aside class="story-card" aria-label="Story panel">
+          <p class="eyebrow story-eyebrow">Call room</p>
+
+          <h2 id="story-title">Choose a call</h2>
+
+          <p id="story-route" class="route">
+            Diaspora → Iran
+          </p>
+
+          <p id="story-year" class="year">
+            Year: —
+          </p>
+
+          <blockquote id="story-quote">
+            Click a blinking point outside Iran. The map will carry the call back home.
+          </blockquote>
+
+          <audio id="story-audio" controls></audio>
+
+          <div class="story-list-wrap">
+            <h3>Call archive</h3>
+
+            <div id="story-list" class="story-list"></div>
+          </div>
+        </aside>
+      </details>
+
+      <button id="reset-view" class="nav-action-button" type="button">
+        Iran view
+      </button>
+    </div>
+  </header>
+
+  <main class="site-shell">
+    <header class="site-header">
+      <h1>Missing Geographies</h1>
+    </header>
+
+    <section class="layout" aria-label="Missing Geographies interactive map">
+      <div class="map-card">
+        <svg
+          id="globe"
+          viewBox="0 0 900 620"
+          role="img"
+          aria-label="Interactive globe map showing calls from diaspora locations back to places in Iran"
+        ></svg>
+      </div>
+    </section>
+  </main>
+
+  <div class="audio-dock" id="audio-dock" aria-label="Audio controls">
+    <button id="audio-back-10" type="button" aria-label="Go back 10 seconds">
+      −10
+    </button>
+
+    <button id="audio-play-pause" type="button" aria-label="Play or pause audio">
+      Play
+    </button>
+
+    <button id="audio-forward-10" type="button" aria-label="Go forward 10 seconds">
+      +10
+    </button>
+
+    <input
+      id="audio-progress"
+      type="range"
+      min="0"
+      max="100"
+      value="0"
+      step="0.1"
+      aria-label="Audio progress"
+    />
+
+    <span id="audio-time">0:00</span>
+  </div>
+
+  <p class="page-notice">
+    Drag the globe to explore. Click a blinking diaspora point or catch a floating fragment to begin a return call.
+  </p>
+
+  <script src="script.js"></script>
+</body>
+</html>
