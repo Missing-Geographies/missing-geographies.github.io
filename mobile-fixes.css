@@ -18,12 +18,6 @@
   margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* The phone-only "Stories" opener created by mobile-fixes.js.
-   Hidden by default; the media query below switches it on. */
-.mg-mobile-stories-button {
-  display: none;
-}
-
 @media (max-width: 760px) {
 
   /* ---------------------------------------------------------------
@@ -58,8 +52,7 @@
      --------------------------------------------------------------- */
   .project-nav-links a,
   .nav-action-button,
-  .nav-dropdown > summary,
-  .mg-mobile-stories-button {
+  .nav-dropdown > summary {
     min-height: 44px;
     display: inline-flex;
     align-items: center;
@@ -98,19 +91,5 @@
     font-size: 10px;
     max-width: 74px;
     line-height: 1.15;
-  }
-
-  /* ---------------------------------------------------------------
-     4. Appearance of the phone-only "Stories" opener.
-     --------------------------------------------------------------- */
-  .mg-mobile-stories-button {
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: inherit;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 999px;
-    cursor: pointer;
   }
 }
