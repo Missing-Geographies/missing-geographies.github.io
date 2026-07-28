@@ -8,7 +8,7 @@
   "use strict";
 
   /* ---------------------------------------------------------------
-     Pinch to zoom the globe.
+     1. Pinch to zoom the globe.
      Zoom was bound to the wheel event only, and touch-action:none on
      a full-screen globe also suppresses the browser own pinch, so a
      phone had no way to zoom at all. This reuses the existing global
@@ -65,8 +65,61 @@
     }, { passive: true });
   }
 
+  /* ---------------------------------------------------------------
+     2. The invitation letter behind the blinking dot, on touch.
+     styles.css hides that letter with opacity and visibility only,
+     so the box keeps a real rectangle under the title, and script.js
+     opens the letter whenever a pointer moves inside that rectangle
+     (isPointNearRect against the quote box). On a phone the invisible
+     rectangle covers most of the upper screen, so almost any touch,
+     or a drag across the globe, popped the letter open.
+
+     mobile-fixes.css collapses the hidden box on touch devices, which
+     removes the phantom trigger area. These two additions are the part
+     CSS cannot do: a finger-sized target on the dot, and a way out of
+     the letter once it is open.
+     --------------------------------------------------------------- */
+  function addTitleQuoteTouchFix() {
+    if (!window.matchMedia("(hover: none), (pointer: coarse)").matches) return;
+
+    var marker = document.querySelector(".title-live-i");
+    var quote = document.getElementById("title-memory-quote");
+
+    /* A child, so the rectangle script.js measures for its 24px
+       proximity test is unchanged. It paints nothing. */
+    if (marker && !marker.querySelector(".mg-i-hit")) {
+      var hit = document.createElement("span");
+
+      hit.className = "mg-i-hit";
+      hit.setAttribute("aria-hidden", "true");
+      marker.appendChild(hit);
+    }
+
+    if (quote && !quote.querySelector(".mg-quote-close")) {
+      var close = document.createElement("button");
+
+      close.type = "button";
+      close.className = "mg-quote-close";
+      close.setAttribute("aria-label", "Close the invitation");
+      close.textContent = "\u00d7";
+
+      /* Click the dot instead of stripping the class directly, so the
+         open/closed flag inside script.js stays in step with the DOM. */
+      close.addEventListener("click", function (event) {
+        event.stopPropagation();
+
+        var dot = document.querySelector(".title-live-i");
+
+        if (dot) dot.click();
+      });
+
+      quote.appendChild(close);
+    }
+  }
+
   function init() {
     addPinchZoom();
+    addTitleQuoteTouchFix();
   }
 
   if (document.readyState === "loading") {
@@ -75,7 +128,9 @@
     init();
   }
 
-  /* script.js rebuilds parts of the page after the sheet loads, so run
-     once more when the dust has settled. init() is idempotent. */
-  window.setTimeout(init, 3000);
+  /* script.js builds the title dot and the letter after the sheet
+     loads, so run again as the dust settles. init() is idempotent. */
+  [1500, 3000, 6000].forEach(function (ms) {
+    window.setTimeout(init, ms);
+  });
 })();
