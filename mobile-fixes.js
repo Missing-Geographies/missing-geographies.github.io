@@ -1,47 +1,14 @@
 /* ============================================================
    mobile-fixes.js
    Touch and phone behaviour patches. Additive only: it does not
-   modify or re-run anything in script.js, it only adds listeners
-   and one nav button. Safe to delete.
+   modify or re-run anything in script.js, it only adds listeners.
+   Safe to delete.
    ============================================================ */
 (function () {
   "use strict";
 
   /* ---------------------------------------------------------------
-     1. A clearly labelled way into the call archive on phones.
-     Below 760px the story panel is folded into a 38px summary that
-     reads "Iran / ایران", which nobody reads as "list of stories".
-     This adds a plain "Stories" button next to it that toggles the
-     same <details> element, so there is one obvious entry point.
-     --------------------------------------------------------------- */
-  function addStoriesOpener() {
-    var dropdown = document.querySelector("details.call-room-dropdown");
-    var actions = document.querySelector(".project-nav-actions");
-
-    if (!dropdown || !actions) return;
-    if (document.querySelector(".mg-mobile-stories-button")) return;
-
-    var button = document.createElement("button");
-
-    button.type = "button";
-    button.className = "mg-mobile-stories-button";
-    button.textContent = "Stories";
-    button.setAttribute("aria-label", "Open the call archive");
-    button.setAttribute("aria-expanded", dropdown.open ? "true" : "false");
-
-    button.addEventListener("click", function () {
-      dropdown.open = !dropdown.open;
-    });
-
-    dropdown.addEventListener("toggle", function () {
-      button.setAttribute("aria-expanded", dropdown.open ? "true" : "false");
-    });
-
-    actions.insertBefore(button, actions.firstChild);
-  }
-
-  /* ---------------------------------------------------------------
-     2. Pinch to zoom the globe.
+     Pinch to zoom the globe.
      Zoom was bound to the wheel event only, and touch-action:none on
      a full-screen globe also suppresses the browser own pinch, so a
      phone had no way to zoom at all. This reuses the existing global
@@ -99,7 +66,6 @@
   }
 
   function init() {
-    addStoriesOpener();
     addPinchZoom();
   }
 
@@ -109,7 +75,7 @@
     init();
   }
 
-  /* script.js rebuilds parts of the nav after the sheet loads, so run
+  /* script.js rebuilds parts of the page after the sheet loads, so run
      once more when the dust has settled. init() is idempotent. */
   window.setTimeout(init, 3000);
 })();
