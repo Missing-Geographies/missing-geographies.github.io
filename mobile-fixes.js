@@ -229,13 +229,13 @@
         return;   // one finger still belongs to the rotate handler
       }
 
-      if (event.touches.length === 2) {
-        pinchSpread = spread(event.touches);
-        pinchSteps = 0;
-        pinching = true;
-        pinchUsed = true;
-        tap = null;
-      }
+      /* Any further finger rebases the pinch from where the fingers
+         are now, so the zoom carries on instead of jumping. */
+      pinchSpread = spread(event.touches);
+      pinchSteps = 0;
+      pinching = true;
+      pinchUsed = true;
+      tap = null;
 
       /* Two fingers mean zoom, never rotation. */
       event.stopPropagation();
@@ -273,10 +273,17 @@
     document.addEventListener("touchend", function (event) {
       if (!onGlobe(event.target)) return;
 
-      if (event.touches.length < 2) {
-        pinching = false;
-        pinchSpread = 0;
+      /* One of three fingers left and two are still down: measure the
+         pair again, so the scale does not jump. */
+      if (event.touches.length >= 2) {
+        pinchSpread = spread(event.touches);
+        pinchSteps = 0;
+        event.stopPropagation();
+        return;
       }
+
+      pinching = false;
+      pinchSpread = 0;
 
       if (event.touches.length > 0) {
         if (pinchUsed) event.stopPropagation();
