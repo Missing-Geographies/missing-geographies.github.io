@@ -115,23 +115,20 @@
     display: none !important;
   }
 
-  /* Open state is pinned to the viewport. The inline top/left that
-     script.js computes is measured while the box is collapsed, so it
-     cannot be trusted, and a sheet reads better on a small screen. */
-  #title-memory-quote.visible {
+  /* script.js places the box by measuring it, and a collapsed box
+     reports no height, so it falls back to a 190px guess and can push
+     the card past the bottom of a short screen. Pin the top instead.
+     Width and height are left alone: styles.css already sizes this
+     card from the viewport, min(640px, 100vw - 34px).
+
+     The extra html body in the selector is only there to outrank the
+     id-plus-two-classes !important rules in styles.css. */
+  html body #title-memory-quote.title-memory-quote.visible {
     display: flex !important;
     position: fixed !important;
     top: calc(env(safe-area-inset-top, 0px) + 66px) !important;
-    left: 12px !important;
-    right: 12px !important;
     bottom: auto !important;
-    width: auto !important;
-    max-width: none !important;
-    max-height: calc(100dvh - 96px - env(safe-area-inset-bottom, 0px)) !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
     transform: none !important;
-    z-index: 2147482400 !important;
   }
 
   /* Finger-sized target over the dot, added by mobile-fixes.js. It is
@@ -146,16 +143,16 @@
     background: transparent;
   }
 
-  /* Way out of the letter, added by mobile-fixes.js. The toolbar with
-     the language toggle is pinned top left, so this sits top right. */
-  #title-memory-quote .mg-quote-close {
-    order: -1;
-    position: sticky;
-    top: 0;
-    align-self: flex-end;
+  /* Way out of the letter, added by mobile-fixes.js. Absolute with a
+     physical right offset: the letter is RTL, so flex-end there would
+     put this on the left, on top of the language toggle. */
+  html body #title-memory-quote .mg-quote-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    z-index: 3;
     min-width: 44px;
     min-height: 44px;
-    margin: -8px -8px 0 0;
     padding: 0;
     border: 0;
     background: none;
