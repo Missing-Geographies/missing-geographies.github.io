@@ -341,6 +341,18 @@
     );
   }
 
+  /* An element that reports itself unpaused while muted at zero
+     volume is not playing anything. That is the silent unlock play
+     script.js makes inside the original tap, so that real playback
+     is allowed later on. Reading it as an instruction would start
+     the story the moment it is chosen, half a minute before the call
+     arrives. Only audible playback, or a tap on a player, counts. */
+  function wantsSound(element) {
+    if (element.dataset.mgAudioWanted === "1") return true;
+
+    return Boolean(!element.paused && !element.muted && element.volume > 0);
+  }
+
   function applyAudioBlob(element, remote, blobUrl, shouldPlay) {
     if (element.getAttribute("src") === blobUrl) return;
 
@@ -376,7 +388,7 @@
     if (!isRemoteSource(remote)) return;
 
     var record = audioBlobStore[remote];
-    var wanted = element.dataset.mgAudioWanted === "1" || !element.paused;
+    var wanted = wantsSound(element);
 
     /* Already downloaded. script.js writes the remote URL back onto
        the player every time it reopens a panel, so this is the
@@ -399,8 +411,7 @@
         AUDIO_LOADING_TEXT + " " + Math.round(ratio * 100) + "%"
       );
     }).then(function (blobUrl) {
-      var stillWanted =
-        element.dataset.mgAudioWanted === "1" || !element.paused;
+      var stillWanted = wantsSound(element);
 
       delete element.dataset.mgAudioLoading;
 
@@ -441,6 +452,7 @@
     var element = event.target;
 
     if (!element || element.tagName !== "AUDIO") return;
+    if (event.type === "play" && (element.muted || !element.volume)) return;
 
     element.dataset.mgAudioWanted = "1";
   }
@@ -503,10 +515,183 @@
     document.addEventListener("pointerdown", noteAudioWanted, true);
   }
 
+  /* ---------------------------------------------------------------
+     4. When the audio starts, and the bar that asked for a tap.
+
+     script.js routes playback away from its own chain on a phone.
+     Three separate patches intercept playStoryAudio, and the last of
+     them parks the story until the journey ends, then shows a panel
+     with a native player and "Tap play to hear this call". All three
+     were written for one reason, that iOS could not play a stream it
+     cannot measure or seek, and section 3 removed that reason.
+
+     What is left is their side effects. Timing: the desktop chain
+     starts the recording from inside the journey, at the moment the
+     line reaches the city and the waiting beep stops, and nothing on
+     a phone was reaching that code, so the only playback was
+     whatever the panel was tapped into. Subtitles: that same chain
+     is what calls startMapSubtitles, so on a phone the overlay was
+     never armed and no cue could appear.
+
+     One cure for all of it: let the phone run the chain the computer
+     runs. Each of the three interceptions asks the device what it is
+     at the moment it decides, so the device answers as a computer
+     for the length of that one synchronous call and all three step
+     aside. Nothing is patched out and nothing is re-implemented
+     here, so the timing is not an imitation of the desktop timing,
+     it is the same call site in the same code.
+
+     If playback really is refused, the panel is still the way out:
+     the chain is called again untouched a few seconds later, which
+     brings it back exactly as it was.
+     --------------------------------------------------------------- */
+  var DESKTOP_USER_AGENT =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+  var audioStartToken = 0;
+
+  function fakeMediaQuery(query, matches) {
+    return {
+      matches: matches,
+      media: query,
+      onchange: null,
+      addListener: function () {},
+      removeListener: function () {},
+      addEventListener: function () {},
+      removeEventListener: function () {},
+      dispatchEvent: function () {
+        return false;
+      }
+    };
+  }
+
+  /* The touch tests in script.js are navigator.userAgent,
+     navigator.platform with maxTouchPoints, and the hover and
+     pointer media queries. All four answer as a desktop for the
+     duration of run(), and are put back in a finally so a throw
+     cannot leave the page lying about itself. */
+  function asDesktopEnvironment(run) {
+    var realMatchMedia = window.matchMedia;
+    var pretend = {
+      userAgent: DESKTOP_USER_AGENT,
+      platform: "Win32",
+      maxTouchPoints: 0
+    };
+    var names = Object.keys(pretend);
+
+    names.forEach(function (name) {
+      try {
+        Object.defineProperty(navigator, name, {
+          configurable: true,
+          get: function () {
+            return pretend[name];
+          }
+        });
+      } catch (error) {}
+    });
+
+    if (typeof realMatchMedia === "function") {
+      window.matchMedia = function (query) {
+        var text = String(query).toLowerCase();
+        var touchQuestion =
+          text.indexOf("hover: none") !== -1 ||
+          text.indexOf("pointer: coarse") !== -1;
+        var mouseQuestion =
+          text.indexOf("hover: hover") !== -1 ||
+          text.indexOf("pointer: fine") !== -1;
+
+        if (touchQuestion) return fakeMediaQuery(query, false);
+        if (mouseQuestion) return fakeMediaQuery(query, true);
+
+        return realMatchMedia.call(window, query);
+      };
+    }
+
+    try {
+      return run();
+    } finally {
+      window.matchMedia = realMatchMedia;
+
+      /* navigator keeps these on its prototype, so dropping the
+         copies made above puts the real answers back. */
+      names.forEach(function (name) {
+        try {
+          delete navigator[name];
+        } catch (error) {}
+      });
+    }
+  }
+
+  function audioIsStillDownloading(remote) {
+    var record = audioBlobStore[remote];
+
+    return Boolean(record && !record.blobUrl);
+  }
+
+  /* Last resort. Sound refused for a reason not thought of here, no
+     story change since, and nothing left to download: hand the call
+     back to the untouched chain, which shows the old panel. */
+  function rescueIfNothingPlays(story, token, runUntouched) {
+    var element = document.getElementById("story-audio");
+    var remote = String((story && story.audio) || "");
+    var quiet = 0;
+
+    if (!element) return;
+
+    var timer = window.setInterval(function () {
+      if (token !== audioStartToken || element.currentTime > 0.2) {
+        window.clearInterval(timer);
+        return;
+      }
+
+      if (audioIsStillDownloading(remote)) return;
+
+      quiet += 1;
+
+      if (quiet < 9) return;
+
+      window.clearInterval(timer);
+
+      if (element.paused || element.readyState === 0) runUntouched();
+    }, 500);
+  }
+
+  function addDesktopAudioTiming() {
+    if (!isTouchPointer()) return;
+    if (typeof window.playStoryAudio !== "function") return;
+
+    /* Re-wrap if a later patch has since taken the outer position. */
+    if (window.playStoryAudio.mgPhoneTimed) return;
+
+    var chained = window.playStoryAudio;
+
+    function phoneAudioFollowsDesktop(story) {
+      var self = this;
+      var args = arguments;
+
+      audioStartToken += 1;
+
+      var token = audioStartToken;
+      var result = asDesktopEnvironment(function () {
+        return chained.apply(self, args);
+      });
+
+      rescueIfNothingPlays(story, token, function () {
+        chained.apply(self, args);
+      });
+
+      return result;
+    }
+
+    phoneAudioFollowsDesktop.mgPhoneTimed = true;
+    window.playStoryAudio = phoneAudioFollowsDesktop;
+  }
+
   function init() {
     addPinchZoom();
     addTitleQuoteTouchFix();
     addPhoneAudioFix();
+    addDesktopAudioTiming();
   }
 
   if (document.readyState === "loading") {
