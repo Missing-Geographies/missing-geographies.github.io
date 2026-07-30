@@ -21814,7 +21814,7 @@ function randomBetween(min, max) {
 
     const now = Date.now();
 
-    if (now - state.hydratedAt < 9000) {
+    if (now - state.hydratedAt < 300000) {
       return;
     }
 
@@ -22719,7 +22719,7 @@ function randomBetween(min, max) {
 
     const now = Date.now();
 
-    if (now - state.hydratedAt < 5000) {
+    if (now - state.hydratedAt < 300000) {
       return;
     }
 
