@@ -2591,7 +2591,7 @@ function keepMemoryCloudItemInBounds(item) {
 }
 
 function applyMemoryCloudPosition(item) {
-  const snapped = snapToDevicePixel(item.x, item.y);
+  const snapped = { x: Math.round(item.x * 100) / 100, y: Math.round(item.y * 100) / 100 };
 
   item.element.style.setProperty("--iran-scatter-x", `${snapped.x}px`);
   item.element.style.setProperty("--iran-scatter-y", `${snapped.y}px`);
