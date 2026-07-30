@@ -2538,7 +2538,7 @@ function updateMemoryCloudItem(item, now, deltaSeconds) {
   }
 
   const angleDiff = normalizeMemoryCloudAngle(item.targetAngle - item.angle);
-  item.angle += angleDiff * 0.008;
+  item.angle += angleDiff * Math.min(1, deltaSeconds * 0.48);
 
   item.x += Math.cos(item.angle) * item.speed * deltaSeconds;
   item.y += Math.sin(item.angle) * item.speed * deltaSeconds;
