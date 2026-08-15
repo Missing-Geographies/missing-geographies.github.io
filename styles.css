@@ -15828,3 +15828,90 @@ html.mg-low-bandwidth-mode .story-post-audio-image {
   }
 }
 
+pasteintostylescss.txt
+
+Page
+1
+/
+1
+100%
+/* =========================================================
+   SUBMITTED-FRAGMENT PANEL — LONG-URL OVERFLOW FIX
+
+   Problem: .mg-unified-media-inner is a grid and
+   .mg-unified-media-header / -body are grid items. Grid and flex
+   items default to min-width:auto, so they refuse to shrink below
+   their min-content width. A submission whose text contains a long
+   unbreakable token (a pasted URL) sets that min-content width to
+   the full length of the token, which pushes the header, the body
+   and the text block WIDER than the panel itself. The panel's own
+   overflow:hidden then clips the result, so the close button and
+   the language chips are pushed off-screen and the text is cut
+   mid-word.
+
+   Fix: let the panel's descendants shrink (min-width:0) and let
+   long tokens break (overflow-wrap:anywhere). Applies at every
+   width, so it covers phones as well as desktop.
+   ========================================================= */
+
+#mg-unified-media-panel,
+.mg-unified-media-panel,
+#mg-unified-media-panel .mg-unified-media-inner,
+.mg-unified-media-panel .mg-unified-media-inner,
+#mg-unified-media-panel .mg-unified-media-header,
+.mg-unified-media-panel .mg-unified-media-header,
+#mg-unified-media-panel .mg-unified-media-body,
+.mg-unified-media-panel .mg-unified-media-body,
+#mg-unified-media-panel .mg-unified-media-section,
+.mg-unified-media-panel .mg-unified-media-section,
+#mg-unified-media-panel .mg-stable-text-section,
+.mg-unified-media-panel .mg-stable-text-section {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+/* The header's title column must also be allowed to shrink, or a
+   long title does the same thing to the close button. */
+#mg-unified-media-panel .mg-unified-media-header > *,
+.mg-unified-media-panel .mg-unified-media-header > * {
+  min-width: 0 !important;
+}
+
+#mg-unified-media-panel .mg-unified-media-close,
+.mg-unified-media-panel .mg-unified-media-close {
+  flex: 0 0 auto !important;
+}
+
+/* Break long unbreakable tokens instead of letting them set the
+   panel's width. break-word is the fallback for older Safari,
+   which does not support overflow-wrap:anywhere. */
+#mg-unified-media-panel .mg-stable-text,
+.mg-unified-media-panel .mg-stable-text,
+#mg-unified-media-panel .mg-unified-media-text,
+.mg-unified-media-panel .mg-unified-media-text,
+#mg-unified-media-panel .mg-unified-media-title,
+.mg-unified-media-panel .mg-unified-media-title,
+#mg-unified-media-panel .mg-unified-media-link,
+.mg-unified-media-panel .mg-unified-media-link,
+.mg-stable-large-reader-text {
+  overflow-wrap: break-word !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
+/* Same class of bug in the audio-call fragment panel. */
+.story-post-audio-fragment-panel,
+.story-post-audio-fragment-inner,
+.story-post-audio-fragment-header,
+.story-post-audio-fragment-body {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.story-post-audio-fragment-title,
+.story-post-audio-fragment-body {
+  overflow-wrap: break-word !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+Displaying pasteintostylescss.txt.
